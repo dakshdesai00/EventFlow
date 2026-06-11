@@ -2,15 +2,18 @@ package dev.itsdaksh.controlplane.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(
-        name = "functions",
+        name = "function_versions",
         uniqueConstraints = {
                 @UniqueConstraint(
                         columnNames = {
-                                "project_id",
-                                "name"
+                                "function_id",
+                                "version_number"
                         }
                 )
         }
@@ -20,33 +23,28 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Function {
+public class FunctionVersion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id", nullable = false)
-    private Project project;
+    @JoinColumn(name = "function_id", nullable = false)
+    private Function function;
 
     @Column(nullable = false)
-    private String name;
-
-    private String description;
+    private Integer versionNumber;
 
     @Column(nullable = false)
-    private Integer timeoutMs;
+    private String storageKey;
 
     @Column(nullable = false)
-    private Integer memoryLimitMb;
+    private String fileHash;
 
     @Column(nullable = false)
-    private Boolean cacheEnabled;
+    private Long fileSizeBytes;
 
-    private Integer cacheTtlSeconds;
-
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "active_version_id")
-    private FunctionVersion activeVersion;
+    @CreationTimestamp
+    private LocalDateTime createdAt;
 }

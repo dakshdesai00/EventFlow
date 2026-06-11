@@ -1,53 +1,81 @@
 package dev.itsdaksh.controlplane.controller;
 
-
-
 import dev.itsdaksh.controlplane.dto.FunctionRequests.CreateFunctionRequest;
-import dev.itsdaksh.controlplane.dto.FunctionRequests.FunctionResponse;
-import dev.itsdaksh.controlplane.service.FuncitionService;
+import dev.itsdaksh.controlplane.service.FunctionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
-@RestController("/api")
+@RestController
 @RequiredArgsConstructor
 public class FunctionController {
-    private final FuncitionService funcitionService;
 
-    @PostMapping("/projects/{projectId}/functions")
-    public ResponseEntity<FunctionResponse> addFunction(@PathVariable Long projectId, @RequestBody CreateFunctionRequest function) {
-        return funcitionService.saveFunction(projectId, function)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    private final FunctionService functionService;
+
+    @PostMapping("/api/projects/{projectId}/functions")
+    public ResponseEntity<?> createFunction(
+            @PathVariable Long projectId,
+            @Valid @RequestBody CreateFunctionRequest request
+    ) {
+
+        return functionService.createFunction(projectId, request)
+                .<ResponseEntity<?>>map(response ->
+                        ResponseEntity.status(HttpStatus.CREATED)
+                                .body(response))
+                .orElseGet(() ->
+                        ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body("Project not found"));
     }
 
-    @GetMapping("/projects/{projectId}/functions")
-    public ResponseEntity<List<FunctionResponse>> getFunctions(@PathVariable Long projectId) {
-        return funcitionService.getProjectFunction(projectId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    @GetMapping("/api/projects/{projectId}/functions")
+    public ResponseEntity<?> getProjectFunctions(
+            @PathVariable Long projectId
+    ) {
+
+        return functionService.getProjectFunctions(projectId)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() ->
+                        ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body("Project not found"));
     }
 
-    @GetMapping("/functions/{funcId}")
-    public ResponseEntity<FunctionResponse> getFunction(@PathVariable Long funcId) {
-        return funcitionService.getFunction(funcId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    @GetMapping("/api/functions/{functionId}")
+    public ResponseEntity<?> getFunction(
+            @PathVariable Long functionId
+    ) {
+
+        return functionService.getFunction(functionId)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() ->
+                        ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body("Function not found"));
     }
 
-    @DeleteMapping("/functions/{funcId}")
-    public ResponseEntity<FunctionResponse> deleteFunction(@PathVariable Long funcId) {
-        return funcitionService.deleteFunction(funcId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    @PutMapping("/api/functions/{functionId}")
+    public ResponseEntity<?> updateFunction(
+            @PathVariable Long functionId,
+            @Valid @RequestBody CreateFunctionRequest request
+    ) {
+
+        return functionService.updateFunction(functionId, request)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() ->
+                        ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body("Function not found"));
     }
 
-    @PutMapping("/functions/{funcId}")
-    public ResponseEntity<FunctionResponse> updateFunction(@PathVariable Long funcId, @RequestBody CreateFunctionRequest function) {
-        return funcitionService.updateFunction(funcId, function)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    @DeleteMapping("/api/functions/{functionId}")
+    public ResponseEntity<?> deleteFunction(
+            @PathVariable Long functionId
+    ) {
+
+        return functionService.deleteFunction(functionId)
+                .<ResponseEntity<?>>map(response ->
+                        ResponseEntity.ok("Function deleted successfully"))
+                .orElseGet(() ->
+                        ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body("Function not found"));
     }
 }

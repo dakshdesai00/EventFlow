@@ -3,6 +3,7 @@ package dev.itsdaksh.controlplane.controller;
 import dev.itsdaksh.controlplane.dto.ProjectRequests.CreateProjectRequest;
 import dev.itsdaksh.controlplane.dto.ProjectRequests.ProjectResponse;
 import dev.itsdaksh.controlplane.service.ProjectService;
+import dev.itsdaksh.controlplane.service.StorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,13 +17,15 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ProjectController {
     private final ProjectService projectService;
-
+    private final StorageService storageService;
     @GetMapping
     public ResponseEntity<?> getProjects() {
         return projectService.getAllProjects()
                 .<ResponseEntity<?>>map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body("No projects found"));
     }
+
+
 
     @PostMapping
     public ResponseEntity<?> createProject(@Valid @RequestBody CreateProjectRequest request) {

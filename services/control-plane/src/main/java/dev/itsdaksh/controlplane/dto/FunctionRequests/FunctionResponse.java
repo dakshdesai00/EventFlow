@@ -2,6 +2,7 @@ package dev.itsdaksh.controlplane.dto.FunctionRequests;
 
 
 public record FunctionResponse(
+
         Long id,
 
         Long projectId,
@@ -16,6 +17,9 @@ public record FunctionResponse(
 
         Boolean cacheEnabled,
 
-        Integer cacheTtlSeconds
+        Integer cacheTtlSeconds,
+
+        Long activeVersionId
+
 ) {
 }
