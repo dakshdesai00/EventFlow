@@ -4,7 +4,7 @@ import dev.itsdaksh.controlplane.dto.EnvironmentVariableRequests.CreateEnvironme
 import dev.itsdaksh.controlplane.dto.EnvironmentVariableRequests.EnvironmentVariableResponse;
 import dev.itsdaksh.controlplane.entity.EnvironmentVariable;
 import dev.itsdaksh.controlplane.repository.EnvironmentVariableRepo;
-import dev.itsdaksh.controlplane.repository.ProjectRepo;
+import dev.itsdaksh.controlplane.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,14 +16,14 @@ import java.util.Optional;
 public class EnvironmentVariableService {
 
     private final EnvironmentVariableRepo environmentVariableRepo;
-    private final ProjectRepo projectRepo;
+    private final ProjectService projectService;
 
     public Optional<EnvironmentVariableResponse> saveProjectEnvironmentVariable(
             Long projectId,
             CreateEnvironmentVariableProjectRequest env
     ) {
 
-        return projectRepo.findById(projectId)
+        return projectService.getProjectById(projectId)
                 .map(project -> {
 
                     EnvironmentVariable environmentVariable =
@@ -33,8 +33,7 @@ public class EnvironmentVariableService {
                                     .project(project)
                                     .build();
 
-                    environmentVariable =
-                            environmentVariableRepo.save(environmentVariable);
+                    environmentVariable = environmentVariableRepo.save(environmentVariable);
 
                     return new EnvironmentVariableResponse(
                             environmentVariable.getId(),
@@ -50,7 +49,7 @@ public class EnvironmentVariableService {
             Long projectId
     ) {
 
-        return projectRepo.findById(projectId)
+        return projectService.getProjectById(projectId)
                 .map(project ->
                         environmentVariableRepo.findByProjectId(projectId)
                                 .stream()

@@ -51,4 +51,9 @@ public class ProjectService {
                 })
                 .or(Optional::empty);
     }
+
+    public Optional<Project> getProjectById(Long projectId) {
+        return projectRepo.findById(projectId);
+    }
+
 }

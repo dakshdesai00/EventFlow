@@ -3,7 +3,7 @@ package dev.itsdaksh.controlplane.service;
 import dev.itsdaksh.controlplane.dto.SecretVariableRequests.CreateSecretVariableProjectRequest;
 import dev.itsdaksh.controlplane.dto.SecretVariableRequests.SecretVariableResponse;
 import dev.itsdaksh.controlplane.entity.SecretVariable;
-import dev.itsdaksh.controlplane.repository.ProjectRepo;
+import dev.itsdaksh.controlplane.service.ProjectService;
 import dev.itsdaksh.controlplane.repository.SecretVariableRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,14 +16,14 @@ import java.util.Optional;
 public class SecretVariableService {
 
     private final SecretVariableRepo secretVariableRepo;
-    private final ProjectRepo projectRepo;
+    private final ProjectService projectService;
 
     public Optional<SecretVariableResponse> saveProjectSecretVariable(
             Long projectId,
             CreateSecretVariableProjectRequest sv
     ) {
 
-        return projectRepo.findById(projectId)
+        return projectService.getProjectById(projectId)
                 .map(project -> {
 
                     SecretVariable secretVariable =
@@ -33,8 +33,7 @@ public class SecretVariableService {
                                     .project(project)
                                     .build();
 
-                    secretVariable =
-                            secretVariableRepo.save(secretVariable);
+                    secretVariable = secretVariableRepo.save(secretVariable);
 
                     return new SecretVariableResponse(
                             secretVariable.getId(),
@@ -50,7 +49,7 @@ public class SecretVariableService {
             Long projectId
     ) {
 
-        return projectRepo.findById(projectId)
+        return projectService.getProjectById(projectId)
                 .map(project ->
                         secretVariableRepo.findByProjectId(projectId)
                                 .stream()

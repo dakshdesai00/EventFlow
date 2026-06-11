@@ -1,9 +1,25 @@
 package dev.itsdaksh.controlplane.entity;
 
 import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
-@Table(name = "functions")
+@Table(
+        name = "functions",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        columnNames = {
+                                "project_id",
+                                "name"
+                        }
+                )
+        }
+)
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Function {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
