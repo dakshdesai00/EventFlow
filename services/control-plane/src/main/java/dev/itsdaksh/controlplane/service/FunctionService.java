@@ -97,6 +97,14 @@ public class FunctionService {
                 });
     }
 
+    public Optional<Function> getFunctionEntity(Long functionId) {
+        return functionRepo.findById(functionId);
+    }
+
+    public Function saveFunctionEntity(Function function) {
+        return functionRepo.save(function);
+    }
+
     private FunctionResponse mapToResponse(
             Function function
     ) {

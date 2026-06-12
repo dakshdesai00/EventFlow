@@ -22,23 +22,14 @@ public class FunctionVersionController {
             @PathVariable Long functionId,
             @RequestParam("file") MultipartFile file
     ) {
-
-        try {
-
-            return functionVersionService
-                    .uploadVersion(functionId, file)
-                    .<ResponseEntity<?>>map(response ->
-                            ResponseEntity.status(HttpStatus.CREATED)
-                                    .body(response))
-                    .orElseGet(() ->
-                            ResponseEntity.status(HttpStatus.NOT_FOUND)
-                                    .body("Function not found"));
-
-        } catch (Exception e) {
-
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(e.getMessage());
-        }
+        return functionVersionService
+                .uploadVersion(functionId, file)
+                .<ResponseEntity<?>>map(response ->
+                        ResponseEntity.status(HttpStatus.CREATED)
+                                .body(response))
+                .orElseGet(() ->
+                        ResponseEntity.status(HttpStatus.NOT_FOUND)
+                                .body("Function not found"));
     }
 
     @GetMapping("/api/functions/{functionId}/versions")

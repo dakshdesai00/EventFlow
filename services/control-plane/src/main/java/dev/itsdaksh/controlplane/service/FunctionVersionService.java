@@ -3,14 +3,17 @@ package dev.itsdaksh.controlplane.service;
 import dev.itsdaksh.controlplane.dto.FunctionRequests.FunctionVersionResponse;
 import dev.itsdaksh.controlplane.entity.Function;
 import dev.itsdaksh.controlplane.entity.FunctionVersion;
-import dev.itsdaksh.controlplane.repository.FunctionRepo;
 import dev.itsdaksh.controlplane.repository.FunctionVersionRepo;
+import dev.itsdaksh.controlplane.service.FunctionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
@@ -19,82 +22,90 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class FunctionVersionService {
 
-    private final FunctionRepo functionRepo;
     private final FunctionVersionRepo functionVersionRepo;
+    private final FunctionService functionService;
     private final StorageService storageService;
 
     public Optional<FunctionVersionResponse> uploadVersion(
             Long functionId,
             MultipartFile file
-    ) throws Exception {
+    ) {
 
         if (file.isEmpty()) {
-            return Optional.empty();
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "File cannot be empty"
+            );
         }
 
-        if (!file.getOriginalFilename().endsWith(".js")) {
-            throw new IllegalArgumentException(
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !originalFilename.endsWith(".js")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
                     "Only .js files are allowed"
             );
         }
 
-        return functionRepo.findById(functionId)
+        return functionService.getFunctionEntity(functionId)
                 .map(function -> {
 
+                    int nextVersion =
+                            functionVersionRepo
+                                    .findTopByFunctionIdOrderByVersionNumberDesc(
+                                            functionId
+                                    )
+                                    .map(v -> v.getVersionNumber() + 1)
+                                    .orElse(1);
+
+                    String storageKey =
+                            "functions/"
+                                    + functionId
+                                    + "/v"
+                                    + nextVersion
+                                    + ".js";
+
+                    storageService.uploadFile(
+                            file,
+                            storageKey
+                    );
+
+                    String hash;
                     try {
-
-                        int nextVersion =
-                                functionVersionRepo
-                                        .findTopByFunctionIdOrderByVersionNumberDesc(
-                                                functionId
-                                        )
-                                        .map(v -> v.getVersionNumber() + 1)
-                                        .orElse(1);
-
-                        String storageKey =
-                                "functions/"
-                                        + functionId
-                                        + "/v"
-                                        + nextVersion
-                                        + ".js";
-
-                        storageService.uploadFile(
-                                file,
-                                storageKey
-                        );
-
-                        String hash =
+                        hash =
                                 calculateSha256(
                                         new String(
                                                 file.getBytes(),
                                                 StandardCharsets.UTF_8
                                         )
                                 );
-
-                        FunctionVersion version =
-                                FunctionVersion.builder()
-                                        .function(function)
-                                        .versionNumber(nextVersion)
-                                        .storageKey(storageKey)
-                                        .fileHash(hash)
-                                        .fileSizeBytes(file.getSize())
-                                        .build();
-
-                        version =
-                                functionVersionRepo.save(version);
-
-                        if (function.getActiveVersion() == null) {
-
-                            function.setActiveVersion(version);
-
-                            functionRepo.save(function);
-                        }
-
-                        return map(version);
-
                     } catch (Exception e) {
-                        throw new RuntimeException(e);
+                        throw new ResponseStatusException(
+                                HttpStatus.INTERNAL_SERVER_ERROR,
+                                "Failed to read uploaded file",
+                                e
+                        );
                     }
+
+                    FunctionVersion version =
+                            FunctionVersion.builder()
+                                    .function(function)
+                                    .versionNumber(nextVersion)
+                                    .storageKey(storageKey)
+                                    .fileHash(hash)
+                                    .fileSizeBytes(file.getSize())
+                                    .build();
+
+                    version =
+                            functionVersionRepo.save(version);
+
+                    if (function.getActiveVersion() == null) {
+
+                        function.setActiveVersion(version);
+
+                        functionService.saveFunctionEntity(function);
+                    }
+
+                    return map(version);
                 });
     }
 
@@ -124,7 +135,6 @@ public class FunctionVersionService {
                 .map(version -> {
 
                     try {
-
                         return new String(
                                 storageService
                                         .downloadFile(
@@ -133,9 +143,14 @@ public class FunctionVersionService {
                                         .readAllBytes(),
                                 StandardCharsets.UTF_8
                         );
-
+                    } catch (ResponseStatusException e) {
+                        throw e;
                     } catch (Exception e) {
-                        throw new RuntimeException(e);
+                        throw new ResponseStatusException(
+                                HttpStatus.INTERNAL_SERVER_ERROR,
+                                "Failed to read function code",
+                                e
+                        );
                     }
                 });
     }
@@ -145,7 +160,7 @@ public class FunctionVersionService {
             Long versionId
     ) {
 
-        return functionRepo.findById(functionId)
+        return functionService.getFunctionEntity(functionId)
                 .flatMap(function ->
                         functionVersionRepo.findById(versionId)
                                 .filter(version ->
@@ -157,7 +172,7 @@ public class FunctionVersionService {
 
                                     function.setActiveVersion(version);
 
-                                    functionRepo.save(function);
+                                    functionService.saveFunctionEntity(function);
 
                                     return map(version);
                                 })
@@ -181,15 +196,9 @@ public class FunctionVersionService {
                 })
                 .map(version -> {
 
-                    try {
-
-                        storageService.deleteFile(
-                                version.getStorageKey()
-                        );
-
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
+                    storageService.deleteFile(
+                            version.getStorageKey()
+                    );
 
                     functionVersionRepo.delete(version);
 
@@ -213,19 +222,26 @@ public class FunctionVersionService {
 
     private String calculateSha256(
             String data
-    ) throws Exception {
+    ) {
+        try {
+            MessageDigest digest =
+                    MessageDigest.getInstance("SHA-256");
 
-        MessageDigest digest =
-                MessageDigest.getInstance("SHA-256");
+            byte[] hash =
+                    digest.digest(
+                            data.getBytes(
+                                    StandardCharsets.UTF_8
+                            )
+                    );
 
-        byte[] hash =
-                digest.digest(
-                        data.getBytes(
-                                StandardCharsets.UTF_8
-                        )
-                );
-
-        return HexFormat.of()
-                .formatHex(hash);
+            return HexFormat.of()
+                    .formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to calculate file hash",
+                    e
+            );
+        }
     }
 }

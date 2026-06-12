@@ -127,4 +127,8 @@ public class EventService {
                     );
                 });
     }
+
+    public Optional<Event> getEventEntity(Long eventId) {
+        return eventRepo.findById(eventId);
+    }
 }

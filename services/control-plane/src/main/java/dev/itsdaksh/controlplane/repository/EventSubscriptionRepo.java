@@ -16,4 +16,5 @@ public interface EventSubscriptionRepo
             Long eventId,
             Long functionId
     );
+
 }
