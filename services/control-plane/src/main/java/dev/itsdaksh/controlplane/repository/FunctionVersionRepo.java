@@ -9,9 +9,17 @@ import java.util.Optional;
 public interface FunctionVersionRepo
         extends JpaRepository<FunctionVersion, Long> {
 
-    List<FunctionVersion> findByFunctionId(Long functionId);
-
-    Optional<FunctionVersion> findTopByFunctionIdOrderByVersionNumberDesc(
+    List<FunctionVersion> findByFunctionId(
             Long functionId
     );
+    Optional<FunctionVersion>
+    findTopByFunctionIdOrderByVersionNumberDesc(
+            Long functionId
+    );
+    Optional<FunctionVersion>
+    findByIdAndFunctionProjectUserId(
+            Long versionId,
+            Long userId
+    );
+
 }

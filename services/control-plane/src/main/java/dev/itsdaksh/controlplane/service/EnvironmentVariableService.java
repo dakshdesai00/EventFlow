@@ -4,6 +4,7 @@ import dev.itsdaksh.controlplane.dto.EnvironmentVariableRequests.CreateEnvironme
 import dev.itsdaksh.controlplane.dto.EnvironmentVariableRequests.CreateEnvironmentVariableProjectRequest;
 import dev.itsdaksh.controlplane.dto.EnvironmentVariableRequests.EnvironmentVariableResponse;
 import dev.itsdaksh.controlplane.entity.EnvironmentVariable;
+import dev.itsdaksh.controlplane.entity.User;
 import dev.itsdaksh.controlplane.repository.EnvironmentVariableRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ public class EnvironmentVariableService {
     private final EnvironmentVariableRepo environmentVariableRepo;
     private final ProjectService projectService;
     private final FunctionService functionService;
+    private final CurrentUserService currentUserService;
 
     public Optional<EnvironmentVariableResponse> saveProjectEnvironmentVariable(
             Long projectId,
@@ -25,138 +27,172 @@ public class EnvironmentVariableService {
     ) {
 
         return projectService.getProjectById(projectId)
-                .filter(project -> !environmentVariableRepo.findByProjectIdAndKeyAndFunctionIsNull(projectId, env.key()).isPresent())
+                .filter(project ->
+                        environmentVariableRepo
+                                .findByProjectIdAndKeyAndFunctionIsNull(
+                                        projectId,
+                                        env.key()
+                                )
+                                .isEmpty()
+                )
                 .map(project -> {
 
                     EnvironmentVariable environmentVariable =
                             EnvironmentVariable.builder()
+                                    .project(project)
                                     .key(env.key())
                                     .value(env.value())
-                                    .project(project)
                                     .build();
 
-                    environmentVariable = environmentVariableRepo.save(environmentVariable);
+                    environmentVariable =
+                            environmentVariableRepo.save(
+                                    environmentVariable
+                            );
 
-                    return new EnvironmentVariableResponse(
-                            environmentVariable.getId(),
-                            environmentVariable.getKey(),
-                            environmentVariable.getValue(),
+                    return map(
+                            environmentVariable,
                             projectId,
                             null
                     );
                 });
     }
 
-    public Optional<List<EnvironmentVariableResponse>> getProjectEnvironmentVariable(
+    public Optional<List<EnvironmentVariableResponse>>
+    getProjectEnvironmentVariable(
             Long projectId
     ) {
 
         return projectService.getProjectById(projectId)
                 .map(project ->
-                        environmentVariableRepo.findByProjectId(projectId)
+                        environmentVariableRepo
+                                .findByProjectIdAndFunctionIsNull(
+                                        projectId
+                                )
                                 .stream()
-                                .map(env -> new EnvironmentVariableResponse(
-                                        env.getId(),
-                                        env.getKey(),
-                                        env.getValue(),
-                                        projectId,
-                                        null
-                                ))
+                                .map(env ->
+                                        map(
+                                                env,
+                                                projectId,
+                                                null
+                                        )
+                                )
                                 .toList()
                 );
     }
 
-    public Optional<EnvironmentVariableResponse> updateProjectEnvironmentVariable(
+    public Optional<EnvironmentVariableResponse>
+    updateProjectEnvironmentVariable(
             Long projectId,
             Long envId,
             CreateEnvironmentVariableProjectRequest env
     ) {
 
-        return environmentVariableRepo.findById(envId)
-                .filter(existingEnv ->
-                        existingEnv.getProject().getId().equals(projectId))
+        return projectService.getProjectById(projectId)
+                .flatMap(project ->
+                        getProjectEnvironmentVariableEntity(
+                                envId
+                        )
+                )
                 .map(existingEnv -> {
 
-                    existingEnv.setKey(env.key());
-                    existingEnv.setValue(env.value());
+                    existingEnv.setKey(
+                            env.key()
+                    );
 
-                    EnvironmentVariable updatedEnv =
-                            environmentVariableRepo.save(existingEnv);
+                    existingEnv.setValue(
+                            env.value()
+                    );
 
-                    return new EnvironmentVariableResponse(
-                            updatedEnv.getId(),
-                            updatedEnv.getKey(),
-                            updatedEnv.getValue(),
+                    EnvironmentVariable updated =
+                            environmentVariableRepo.save(
+                                    existingEnv
+                            );
+
+                    return map(
+                            updated,
                             projectId,
                             null
                     );
                 });
     }
 
-    public Optional<EnvironmentVariableResponse> deleteProjectEnvironmentVariable(
+    public Optional<EnvironmentVariableResponse>
+    deleteProjectEnvironmentVariable(
             Long projectId,
             Long envId
     ) {
 
-        return environmentVariableRepo.findById(envId)
-                .filter(env ->
-                        env.getProject().getId().equals(projectId))
+        return projectService.getProjectById(projectId)
+                .flatMap(project ->
+                        getProjectEnvironmentVariableEntity(
+                                envId
+                        )
+                )
                 .map(env -> {
 
                     environmentVariableRepo.delete(env);
 
-                    return new EnvironmentVariableResponse(
-                            env.getId(),
-                            env.getKey(),
-                            env.getValue(),
+                    return map(
+                            env,
                             projectId,
                             null
                     );
                 });
     }
-    public Optional<EnvironmentVariableResponse> saveFunctionEnvironmentVariable(
+
+    public Optional<EnvironmentVariableResponse>
+    saveFunctionEnvironmentVariable(
             Long functionId,
             CreateEnvironmentVariableFunctionRequest env
     ) {
 
         return functionService.getFunctionEntity(functionId)
-                .filter(function -> !environmentVariableRepo.findByFunctionIdAndKey(functionId, env.key()).isPresent())
+                .filter(function ->
+                        environmentVariableRepo
+                                .findByFunctionIdAndKey(
+                                        functionId,
+                                        env.key()
+                                )
+                                .isEmpty()
+                )
                 .map(function -> {
 
                     EnvironmentVariable environmentVariable =
                             EnvironmentVariable.builder()
-                                    .project(function.getProject())
+                                    .project(
+                                            function.getProject()
+                                    )
                                     .function(function)
                                     .key(env.key())
                                     .value(env.value())
                                     .build();
 
                     environmentVariable =
-                            environmentVariableRepo.save(environmentVariable);
+                            environmentVariableRepo.save(
+                                    environmentVariable
+                            );
 
-                    return new EnvironmentVariableResponse(
-                            environmentVariable.getId(),
-                            environmentVariable.getKey(),
-                            environmentVariable.getValue(),
+                    return map(
+                            environmentVariable,
                             function.getProject().getId(),
                             functionId
                     );
                 });
     }
 
-    public Optional<List<EnvironmentVariableResponse>> getFunctionEnvironmentVariables(
+    public Optional<List<EnvironmentVariableResponse>>
+    getFunctionEnvironmentVariables(
             Long functionId
     ) {
 
         return functionService.getFunctionEntity(functionId)
                 .map(function ->
-                        environmentVariableRepo.findByFunctionId(functionId)
+                        environmentVariableRepo
+                                .findByFunctionId(functionId)
                                 .stream()
                                 .map(env ->
-                                        new EnvironmentVariableResponse(
-                                                env.getId(),
-                                                env.getKey(),
-                                                env.getValue(),
+                                        map(
+                                                env,
                                                 function.getProject().getId(),
                                                 functionId
                                         )
@@ -165,57 +201,114 @@ public class EnvironmentVariableService {
                 );
     }
 
-    public Optional<EnvironmentVariableResponse> updateFunctionEnvironmentVariable(
+    public Optional<EnvironmentVariableResponse>
+    updateFunctionEnvironmentVariable(
             Long functionId,
             Long envId,
             CreateEnvironmentVariableFunctionRequest env
     ) {
 
-        return environmentVariableRepo.findById(envId)
-                .filter(existing ->
-                        existing.getFunction() != null
-                                && existing.getFunction().getId().equals(functionId)
+        return functionService.getFunctionEntity(functionId)
+                .flatMap(function ->
+                        getFunctionEnvironmentVariableEntity(
+                                envId
+                        )
                 )
                 .map(existing -> {
 
-                    existing.setKey(env.key());
-                    existing.setValue(env.value());
+                    existing.setKey(
+                            env.key()
+                    );
+
+                    existing.setValue(
+                            env.value()
+                    );
 
                     EnvironmentVariable updated =
-                            environmentVariableRepo.save(existing);
+                            environmentVariableRepo.save(
+                                    existing
+                            );
 
-                    return new EnvironmentVariableResponse(
-                            updated.getId(),
-                            updated.getKey(),
-                            updated.getValue(),
+                    return map(
+                            updated,
                             updated.getProject().getId(),
                             functionId
                     );
                 });
     }
 
-    public Optional<EnvironmentVariableResponse> deleteFunctionEnvironmentVariable(
+    public Optional<EnvironmentVariableResponse>
+    deleteFunctionEnvironmentVariable(
             Long functionId,
             Long envId
     ) {
 
-        return environmentVariableRepo.findById(envId)
-                .filter(env ->
-                        env.getFunction() != null
-                                && env.getFunction().getId().equals(functionId)
+        return functionService.getFunctionEntity(functionId)
+                .flatMap(function ->
+                        getFunctionEnvironmentVariableEntity(
+                                envId
+                        )
                 )
                 .map(env -> {
 
                     environmentVariableRepo.delete(env);
 
-                    return new EnvironmentVariableResponse(
-                            env.getId(),
-                            env.getKey(),
-                            env.getValue(),
+                    return map(
+                            env,
                             env.getProject().getId(),
                             functionId
                     );
                 });
     }
 
+    private Optional<EnvironmentVariable>
+    getProjectEnvironmentVariableEntity(
+            Long envId
+    ) {
+
+        User currentUser =
+                currentUserService.getCurrentUser();
+
+        return environmentVariableRepo
+                .findByIdAndProjectUserId(
+                        envId,
+                        currentUser.getId()
+                )
+                .filter(env ->
+                        env.getFunction() == null
+                );
+    }
+
+    private Optional<EnvironmentVariable>
+    getFunctionEnvironmentVariableEntity(
+            Long envId
+    ) {
+
+        User currentUser =
+                currentUserService.getCurrentUser();
+
+        return environmentVariableRepo
+                .findByIdAndFunctionProjectUserId(
+                        envId,
+                        currentUser.getId()
+                )
+                .filter(env ->
+                        env.getFunction() != null
+                );
+    }
+
+    private EnvironmentVariableResponse map(
+            EnvironmentVariable env,
+            Long projectId,
+            Long functionId
+    ) {
+
+        return new EnvironmentVariableResponse(
+                env.getId(),
+                env.getKey(),
+                env.getValue(),
+                projectId,
+                functionId
+        );
+    }
 }

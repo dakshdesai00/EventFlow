@@ -4,7 +4,7 @@ import dev.itsdaksh.controlplane.dto.SecretVariableRequests.CreateSecretVariable
 import dev.itsdaksh.controlplane.dto.SecretVariableRequests.CreateSecretVariableProjectRequest;
 import dev.itsdaksh.controlplane.dto.SecretVariableRequests.SecretVariableResponse;
 import dev.itsdaksh.controlplane.entity.SecretVariable;
-
+import dev.itsdaksh.controlplane.entity.User;
 import dev.itsdaksh.controlplane.repository.SecretVariableRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,7 +19,7 @@ public class SecretVariableService {
     private final SecretVariableRepo secretVariableRepo;
     private final ProjectService projectService;
     private final FunctionService functionService;
-
+    private final CurrentUserService currentUserService;
 
     public Optional<SecretVariableResponse> saveProjectSecretVariable(
             Long projectId,
@@ -27,138 +27,172 @@ public class SecretVariableService {
     ) {
 
         return projectService.getProjectById(projectId)
-                .filter(project -> !secretVariableRepo.findByProjectIdAndKeyAndFunctionIsNull(projectId, sv.key()).isPresent())
+                .filter(project ->
+                        secretVariableRepo
+                                .findByProjectIdAndKeyAndFunctionIsNull(
+                                        projectId,
+                                        sv.key()
+                                )
+                                .isEmpty()
+                )
                 .map(project -> {
 
                     SecretVariable secretVariable =
                             SecretVariable.builder()
+                                    .project(project)
                                     .key(sv.key())
                                     .value(sv.value())
-                                    .project(project)
                                     .build();
 
-                    secretVariable = secretVariableRepo.save(secretVariable);
+                    secretVariable =
+                            secretVariableRepo.save(
+                                    secretVariable
+                            );
 
-                    return new SecretVariableResponse(
-                            secretVariable.getId(),
-                            secretVariable.getKey(),
-                            secretVariable.getValue(),
+                    return map(
+                            secretVariable,
                             projectId,
                             null
                     );
                 });
     }
 
-    public Optional<List<SecretVariableResponse>> getProjectSecretVariable(
+    public Optional<List<SecretVariableResponse>>
+    getProjectSecretVariable(
             Long projectId
     ) {
 
         return projectService.getProjectById(projectId)
                 .map(project ->
-                        secretVariableRepo.findByProjectId(projectId)
+                        secretVariableRepo
+                                .findByProjectIdAndFunctionIsNull(
+                                        projectId
+                                )
                                 .stream()
-                                .map(sv -> new SecretVariableResponse(
-                                        sv.getId(),
-                                        sv.getKey(),
-                                        sv.getValue(),
-                                        projectId,
-                                        null
-                                ))
+                                .map(secret ->
+                                        map(
+                                                secret,
+                                                projectId,
+                                                null
+                                        )
+                                )
                                 .toList()
                 );
     }
 
-    public Optional<SecretVariableResponse> updateProjectSecretVariable(
+    public Optional<SecretVariableResponse>
+    updateProjectSecretVariable(
             Long projectId,
-            Long svId,
+            Long secretId,
             CreateSecretVariableProjectRequest sv
     ) {
 
-        return secretVariableRepo.findById(svId)
-                .filter(existingSv ->
-                        existingSv.getProject().getId().equals(projectId))
-                .map(existingSv -> {
+        return projectService.getProjectById(projectId)
+                .flatMap(project ->
+                        getProjectSecretEntity(
+                                secretId
+                        )
+                )
+                .map(existing -> {
 
-                    existingSv.setKey(sv.key());
-                    existingSv.setValue(sv.value());
+                    existing.setKey(
+                            sv.key()
+                    );
+
+                    existing.setValue(
+                            sv.value()
+                    );
 
                     SecretVariable updated =
-                            secretVariableRepo.save(existingSv);
+                            secretVariableRepo.save(
+                                    existing
+                            );
 
-                    return new SecretVariableResponse(
-                            updated.getId(),
-                            updated.getKey(),
-                            updated.getValue(),
+                    return map(
+                            updated,
                             projectId,
                             null
                     );
                 });
     }
 
-    public Optional<SecretVariableResponse> deleteProjectSecretVariable(
+    public Optional<SecretVariableResponse>
+    deleteProjectSecretVariable(
             Long projectId,
-            Long svId
+            Long secretId
     ) {
 
-        return secretVariableRepo.findById(svId)
-                .filter(sv ->
-                        sv.getProject().getId().equals(projectId))
-                .map(sv -> {
+        return projectService.getProjectById(projectId)
+                .flatMap(project ->
+                        getProjectSecretEntity(
+                                secretId
+                        )
+                )
+                .map(secret -> {
 
-                    secretVariableRepo.delete(sv);
+                    secretVariableRepo.delete(secret);
 
-                    return new SecretVariableResponse(
-                            sv.getId(),
-                            sv.getKey(),
-                            sv.getValue(),
+                    return map(
+                            secret,
                             projectId,
                             null
                     );
                 });
     }
-    public Optional<SecretVariableResponse> saveFunctionSecretVariable(
+
+    public Optional<SecretVariableResponse>
+    saveFunctionSecretVariable(
             Long functionId,
             CreateSecretVariableFunctionRequest sv
     ) {
 
         return functionService.getFunctionEntity(functionId)
-                .filter(function -> !secretVariableRepo.findByFunctionIdAndKey(functionId, sv.key()).isPresent())
+                .filter(function ->
+                        secretVariableRepo
+                                .findByFunctionIdAndKey(
+                                        functionId,
+                                        sv.key()
+                                )
+                                .isEmpty()
+                )
                 .map(function -> {
 
                     SecretVariable secretVariable =
                             SecretVariable.builder()
-                                    .project(function.getProject())
+                                    .project(
+                                            function.getProject()
+                                    )
                                     .function(function)
                                     .key(sv.key())
                                     .value(sv.value())
                                     .build();
 
                     secretVariable =
-                            secretVariableRepo.save(secretVariable);
+                            secretVariableRepo.save(
+                                    secretVariable
+                            );
 
-                    return new SecretVariableResponse(
-                            secretVariable.getId(),
-                            secretVariable.getKey(),
-                            secretVariable.getValue(),
+                    return map(
+                            secretVariable,
                             function.getProject().getId(),
                             functionId
                     );
                 });
     }
 
-    public Optional<List<SecretVariableResponse>> getFunctionSecretVariable(
+    public Optional<List<SecretVariableResponse>>
+    getFunctionSecretVariable(
             Long functionId
     ) {
 
         return functionService.getFunctionEntity(functionId)
                 .map(function ->
-                        secretVariableRepo.findByFunctionId(functionId)
+                        secretVariableRepo
+                                .findByFunctionId(functionId)
                                 .stream()
-                                .map(sv ->
-                                        new SecretVariableResponse(
-                                                sv.getId(),
-                                                sv.getKey(),
-                                                sv.getValue(),
+                                .map(secret ->
+                                        map(
+                                                secret,
                                                 function.getProject().getId(),
                                                 functionId
                                         )
@@ -167,56 +201,114 @@ public class SecretVariableService {
                 );
     }
 
-    public Optional<SecretVariableResponse> updateFunctionSecretVariable(
+    public Optional<SecretVariableResponse>
+    updateFunctionSecretVariable(
             Long functionId,
-            Long svId,
+            Long secretId,
             CreateSecretVariableFunctionRequest sv
     ) {
 
-        return secretVariableRepo.findById(svId)
-                .filter(existing ->
-                        existing.getFunction() != null
-                                && existing.getFunction().getId().equals(functionId)
+        return functionService.getFunctionEntity(functionId)
+                .flatMap(function ->
+                        getFunctionSecretEntity(
+                                secretId
+                        )
                 )
                 .map(existing -> {
 
-                    existing.setKey(sv.key());
-                    existing.setValue(sv.value());
+                    existing.setKey(
+                            sv.key()
+                    );
+
+                    existing.setValue(
+                            sv.value()
+                    );
 
                     SecretVariable updated =
-                            secretVariableRepo.save(existing);
+                            secretVariableRepo.save(
+                                    existing
+                            );
 
-                    return new SecretVariableResponse(
-                            updated.getId(),
-                            updated.getKey(),
-                            updated.getValue(),
+                    return map(
+                            updated,
                             updated.getProject().getId(),
                             functionId
                     );
                 });
     }
 
-    public Optional<SecretVariableResponse> deleteFunctionSecretVariable(
+    public Optional<SecretVariableResponse>
+    deleteFunctionSecretVariable(
             Long functionId,
-            Long svId
+            Long secretId
     ) {
 
-        return secretVariableRepo.findById(svId)
-                .filter(sv ->
-                        sv.getFunction() != null
-                                && sv.getFunction().getId().equals(functionId)
+        return functionService.getFunctionEntity(functionId)
+                .flatMap(function ->
+                        getFunctionSecretEntity(
+                                secretId
+                        )
                 )
-                .map(sv -> {
+                .map(secret -> {
 
-                    secretVariableRepo.delete(sv);
+                    secretVariableRepo.delete(secret);
 
-                    return new SecretVariableResponse(
-                            sv.getId(),
-                            sv.getKey(),
-                            sv.getValue(),
-                            sv.getProject().getId(),
+                    return map(
+                            secret,
+                            secret.getProject().getId(),
                             functionId
                     );
                 });
+    }
+
+    private Optional<SecretVariable>
+    getProjectSecretEntity(
+            Long secretId
+    ) {
+
+        User currentUser =
+                currentUserService.getCurrentUser();
+
+        return secretVariableRepo
+                .findByIdAndProjectUserId(
+                        secretId,
+                        currentUser.getId()
+                )
+                .filter(secret ->
+                        secret.getFunction() == null
+                );
+    }
+
+    private Optional<SecretVariable>
+    getFunctionSecretEntity(
+            Long secretId
+    ) {
+
+        User currentUser =
+                currentUserService.getCurrentUser();
+
+        return secretVariableRepo
+                .findByIdAndFunctionProjectUserId(
+                        secretId,
+                        currentUser.getId()
+                )
+                .filter(secret ->
+                        secret.getFunction() != null
+                );
+    }
+
+    private SecretVariableResponse map(
+            SecretVariable secret,
+            Long projectId,
+            Long functionId
+    ) {
+
+        return new SecretVariableResponse(
+                secret.getId(),
+                secret.getKey(),
+                secret.getValue(),
+                projectId,
+                functionId
+        );
     }
 }

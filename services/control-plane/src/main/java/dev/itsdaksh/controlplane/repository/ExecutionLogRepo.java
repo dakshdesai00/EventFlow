@@ -8,5 +8,13 @@ import java.util.List;
 public interface ExecutionLogRepo
         extends JpaRepository<ExecutionLog, Long> {
 
-    List<ExecutionLog> findByExecutionId(Long executionId);
+    List<ExecutionLog> findByExecutionId(
+            Long executionId
+    );
+    List<ExecutionLog>
+    findByExecutionIdAndExecutionFunctionProjectUserId(
+            Long executionId,
+            Long userId
+    );
+
 }

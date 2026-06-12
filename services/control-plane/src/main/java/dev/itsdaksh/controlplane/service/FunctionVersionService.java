@@ -3,8 +3,8 @@ package dev.itsdaksh.controlplane.service;
 import dev.itsdaksh.controlplane.dto.FunctionRequests.FunctionVersionResponse;
 import dev.itsdaksh.controlplane.entity.Function;
 import dev.itsdaksh.controlplane.entity.FunctionVersion;
+import dev.itsdaksh.controlplane.entity.User;
 import dev.itsdaksh.controlplane.repository.FunctionVersionRepo;
-import dev.itsdaksh.controlplane.service.FunctionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,30 +25,27 @@ public class FunctionVersionService {
     private final FunctionVersionRepo functionVersionRepo;
     private final FunctionService functionService;
     private final StorageService storageService;
-
+    private final CurrentUserService currentUserService;
     public Optional<FunctionVersionResponse> uploadVersion(
             Long functionId,
             MultipartFile file
     ) {
-
         if (file.isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "File cannot be empty"
             );
         }
-
         String originalFilename = file.getOriginalFilename();
-        if (originalFilename == null || !originalFilename.endsWith(".js")) {
+        if (originalFilename == null
+                || !originalFilename.endsWith(".js")) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Only .js files are allowed"
             );
         }
-
         return functionService.getFunctionEntity(functionId)
                 .map(function -> {
-
                     int nextVersion =
                             functionVersionRepo
                                     .findTopByFunctionIdOrderByVersionNumberDesc(
@@ -56,19 +53,16 @@ public class FunctionVersionService {
                                     )
                                     .map(v -> v.getVersionNumber() + 1)
                                     .orElse(1);
-
                     String storageKey =
                             "functions/"
                                     + functionId
                                     + "/v"
                                     + nextVersion
                                     + ".js";
-
                     storageService.uploadFile(
                             file,
                             storageKey
                     );
-
                     String hash;
                     try {
                         hash =
@@ -85,7 +79,6 @@ public class FunctionVersionService {
                                 e
                         );
                     }
-
                     FunctionVersion version =
                             FunctionVersion.builder()
                                     .function(function)
@@ -94,46 +87,39 @@ public class FunctionVersionService {
                                     .fileHash(hash)
                                     .fileSizeBytes(file.getSize())
                                     .build();
-
                     version =
                             functionVersionRepo.save(version);
-
                     if (function.getActiveVersion() == null) {
-
                         function.setActiveVersion(version);
-
                         functionService.saveFunctionEntity(function);
                     }
-
                     return map(version);
                 });
     }
-
     public List<FunctionVersionResponse> getVersions(
             Long functionId
     ) {
-
-        return functionVersionRepo.findByFunctionId(functionId)
-                .stream()
-                .map(this::map)
-                .toList();
+        return functionService
+                .getFunctionEntity(functionId)
+                .map(function ->
+                        functionVersionRepo.findByFunctionId(functionId)
+                                .stream()
+                                .map(this::map)
+                                .toList()
+                )
+                .orElse(List.of());
     }
-
     public Optional<FunctionVersionResponse> getVersion(
             Long versionId
     ) {
-
-        return functionVersionRepo.findById(versionId)
+        return getVersionEntity(versionId)
                 .map(this::map);
     }
-
     public Optional<String> getCode(
             Long versionId
     ) {
-
-        return functionVersionRepo.findById(versionId)
+        return getVersionEntity(versionId)
                 .map(version -> {
-
                     try {
                         return new String(
                                 storageService
@@ -154,62 +140,59 @@ public class FunctionVersionService {
                     }
                 });
     }
-
     public Optional<FunctionVersionResponse> setActiveVersion(
             Long functionId,
             Long versionId
     ) {
-
         return functionService.getFunctionEntity(functionId)
                 .flatMap(function ->
-                        functionVersionRepo.findById(versionId)
+                        getVersionEntity(versionId)
                                 .filter(version ->
                                         version.getFunction()
                                                 .getId()
                                                 .equals(functionId)
                                 )
                                 .map(version -> {
-
                                     function.setActiveVersion(version);
-
                                     functionService.saveFunctionEntity(function);
-
                                     return map(version);
                                 })
                 );
     }
-
     public Optional<FunctionVersionResponse> deleteVersion(
             Long versionId
     ) {
-
-        return functionVersionRepo.findById(versionId)
+        return getVersionEntity(versionId)
                 .filter(version -> {
-
                     Function function =
                             version.getFunction();
-
                     return function.getActiveVersion() == null
                             || !function.getActiveVersion()
                             .getId()
                             .equals(versionId);
                 })
                 .map(version -> {
-
                     storageService.deleteFile(
                             version.getStorageKey()
                     );
-
                     functionVersionRepo.delete(version);
-
                     return map(version);
                 });
     }
-
+    private Optional<FunctionVersion> getVersionEntity(
+            Long versionId
+    ) {
+        User currentUser =
+                currentUserService.getCurrentUser();
+        return functionVersionRepo
+                .findByIdAndFunctionProjectUserId(
+                        versionId,
+                        currentUser.getId()
+                );
+    }
     private FunctionVersionResponse map(
             FunctionVersion version
     ) {
-
         return new FunctionVersionResponse(
                 version.getId(),
                 version.getFunction().getId(),
@@ -219,21 +202,18 @@ public class FunctionVersionService {
                 version.getFileSizeBytes()
         );
     }
-
     private String calculateSha256(
             String data
     ) {
         try {
             MessageDigest digest =
                     MessageDigest.getInstance("SHA-256");
-
             byte[] hash =
                     digest.digest(
                             data.getBytes(
                                     StandardCharsets.UTF_8
                             )
                     );
-
             return HexFormat.of()
                     .formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
@@ -244,4 +224,5 @@ public class FunctionVersionService {
             );
         }
     }
+
 }

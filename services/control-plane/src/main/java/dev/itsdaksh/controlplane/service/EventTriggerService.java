@@ -3,6 +3,7 @@ package dev.itsdaksh.controlplane.service;
 import dev.itsdaksh.controlplane.dto.EventRequests.TriggerEventResponse;
 import dev.itsdaksh.controlplane.dto.EventRequests.TriggeredFunctionResponse;
 import dev.itsdaksh.controlplane.entity.Event;
+import dev.itsdaksh.controlplane.entity.EventAllowedDomain;
 import dev.itsdaksh.controlplane.repository.EventAllowedDomainRepo;
 import dev.itsdaksh.controlplane.repository.EventRepo;
 import dev.itsdaksh.controlplane.repository.EventSubscriptionRepo;
@@ -59,17 +60,22 @@ public class EventTriggerService {
             String origin
     ) {
 
-        if (origin == null || origin.isBlank()) {
+        List<String> allowedDomains =
+                eventAllowedDomainRepo
+                        .findByEventId(event.getId())
+                        .stream()
+                        .map(EventAllowedDomain::getDomain)
+                        .toList();
+
+        if (allowedDomains.isEmpty()) {
             return true;
         }
 
-        return eventAllowedDomainRepo
-                .findByEventId(event.getId())
-                .stream()
-                .anyMatch(domain ->
-                        origin.contains(
-                                domain.getDomain()
-                        )
-                );
+        if (origin == null || origin.isBlank()) {
+            return false;
+        }
+
+        return allowedDomains.stream()
+                .anyMatch(origin::contains);
     }
 }

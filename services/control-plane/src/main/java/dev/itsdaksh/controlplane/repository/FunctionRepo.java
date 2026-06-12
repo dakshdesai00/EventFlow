@@ -8,6 +8,12 @@ import java.util.Optional;
 
 public interface FunctionRepo extends JpaRepository<Function, Long> {
 
-    List<Function> findByProjectId(Long projectId);
-    Optional<Function> findById(Long id);
+    List<Function> findByProjectId(
+            Long projectId
+    );
+
+    Optional<Function> findByIdAndProjectUserId(
+            Long functionId,
+            Long userId
+    );
 }

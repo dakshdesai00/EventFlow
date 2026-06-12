@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ProjectController {
     private final ProjectService projectService;
-    private final StorageService storageService;
     @GetMapping
     public ResponseEntity<?> getProjects() {
         return projectService.getAllProjects()

@@ -7,8 +7,16 @@ import java.util.List;
 import java.util.Optional;
 
 public interface EventRepo extends JpaRepository<Event, Long> {
-    List<Event> findByProjectId(Long projectId);
+
+    List<Event> findByProjectId(
+            Long projectId
+    );
     Optional<Event> findByWebhookToken(
             String webhookToken
     );
+    Optional<Event> findByIdAndProjectUserId(
+            Long eventId,
+            Long userId
+    );
+
 }

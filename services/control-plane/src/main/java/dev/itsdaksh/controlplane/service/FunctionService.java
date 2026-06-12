@@ -3,6 +3,7 @@ package dev.itsdaksh.controlplane.service;
 import dev.itsdaksh.controlplane.dto.FunctionRequests.CreateFunctionRequest;
 import dev.itsdaksh.controlplane.dto.FunctionRequests.FunctionResponse;
 import dev.itsdaksh.controlplane.entity.Function;
+import dev.itsdaksh.controlplane.entity.User;
 import dev.itsdaksh.controlplane.repository.FunctionRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ public class FunctionService {
 
     private final FunctionRepo functionRepo;
     private final ProjectService projectService;
+    private final CurrentUserService currentUserService;
 
     public Optional<FunctionResponse> createFunction(
             Long projectId,
@@ -59,7 +61,7 @@ public class FunctionService {
             Long functionId
     ) {
 
-        return functionRepo.findById(functionId)
+        return getFunctionEntity(functionId)
                 .map(this::mapToResponse);
     }
 
@@ -68,7 +70,7 @@ public class FunctionService {
             CreateFunctionRequest request
     ) {
 
-        return functionRepo.findById(functionId)
+        return getFunctionEntity(functionId)
                 .map(function -> {
 
                     function.setName(request.name());
@@ -78,9 +80,10 @@ public class FunctionService {
                     function.setCacheEnabled(request.cacheEnabled());
                     function.setCacheTtlSeconds(request.cacheTtlSeconds());
 
-                    return mapToResponse(
-                            functionRepo.save(function)
-                    );
+                    Function updated =
+                            functionRepo.save(function);
+
+                    return mapToResponse(updated);
                 });
     }
 
@@ -88,7 +91,7 @@ public class FunctionService {
             Long functionId
     ) {
 
-        return functionRepo.findById(functionId)
+        return getFunctionEntity(functionId)
                 .map(function -> {
 
                     functionRepo.delete(function);
@@ -97,11 +100,23 @@ public class FunctionService {
                 });
     }
 
-    public Optional<Function> getFunctionEntity(Long functionId) {
-        return functionRepo.findById(functionId);
+    public Optional<Function> getFunctionEntity(
+            Long functionId
+    ) {
+
+        User currentUser =
+                currentUserService.getCurrentUser();
+
+        return functionRepo.findByIdAndProjectUserId(
+                functionId,
+                currentUser.getId()
+        );
     }
 
-    public Function saveFunctionEntity(Function function) {
+    public Function saveFunctionEntity(
+            Function function
+    ) {
+
         return functionRepo.save(function);
     }
 
