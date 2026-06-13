@@ -2,14 +2,14 @@ package dev.itsdaksh.controlplane.service;
 
 import dev.itsdaksh.controlplane.dto.ExecutionRequests.ExecutionLogResponse;
 import dev.itsdaksh.controlplane.dto.ExecutionRequests.ExecutionResponse;
-import dev.itsdaksh.controlplane.entity.Execution;
-import dev.itsdaksh.controlplane.entity.ExecutionLog;
-import dev.itsdaksh.controlplane.entity.User;
+import dev.itsdaksh.controlplane.entity.*;
 import dev.itsdaksh.controlplane.repository.ExecutionLogRepo;
 import dev.itsdaksh.controlplane.repository.ExecutionRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -108,5 +108,117 @@ public class ExecutionService {
                 log.getMessage()
         );
     }
+    public Execution createExecution(
+            Event event,
+            Function function,
+            String payload
+    ) {
 
+        Execution execution =
+                Execution.builder()
+                        .event(event)
+                        .function(function)
+                        .payload(payload)
+                        .status(
+                                ExecutionStatus.PENDING
+                        )
+                        .attemptCount(0)
+                        .build();
+
+        return executionRepo.save(
+                execution
+        );
+    }
+
+    public Optional<Execution> markRunning(
+            Long executionId,
+            String workerId
+    ) {
+
+        return executionRepo.findById(
+                        executionId
+                )
+                .map(execution -> {
+
+                    execution.setStatus(
+                            ExecutionStatus.RUNNING
+                    );
+
+                    execution.setWorkerId(
+                            workerId
+                    );
+
+                    execution.setStartedAt(
+                            Instant.now()
+                    );
+
+                    return executionRepo.save(
+                            execution
+                    );
+                });
+    }
+
+    public Optional<Execution> markSuccess(
+            Long executionId
+    ) {
+
+        return executionRepo.findById(
+                        executionId
+                )
+                .map(execution -> {
+
+                    execution.setStatus(
+                            ExecutionStatus.SUCCESS
+                    );
+
+                    execution.setEndedAt(
+                            Instant.now()
+                    );
+
+                    if (
+                            execution.getStartedAt()
+                                    != null
+                    ) {
+
+                        execution.setDurationMs(
+                                Duration.between(
+                                        execution.getStartedAt(),
+                                        execution.getEndedAt()
+                                ).toMillis()
+                        );
+                    }
+
+                    return executionRepo.save(
+                            execution
+                    );
+                });
+    }
+
+    public Optional<Execution> markFailed(
+            Long executionId,
+            String error
+    ) {
+
+        return executionRepo.findById(
+                        executionId
+                )
+                .map(execution -> {
+
+                    execution.setStatus(
+                            ExecutionStatus.FAILED
+                    );
+
+                    execution.setErrorMessage(
+                            error
+                    );
+
+                    execution.setEndedAt(
+                            Instant.now()
+                    );
+
+                    return executionRepo.save(
+                            execution
+                    );
+                });
+    }
 }

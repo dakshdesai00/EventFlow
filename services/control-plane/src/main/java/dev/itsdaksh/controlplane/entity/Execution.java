@@ -25,7 +25,11 @@ public class Execution {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "function_id", nullable = false)
     private Function function;
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer attemptCount = 0;
 
+    private String workerId;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ExecutionStatus status;
@@ -38,4 +42,8 @@ public class Execution {
 
     @Column(length = 5000)
     private String errorMessage;
+
+    @Column(columnDefinition = "TEXT")
+
+    private String payload;
 }

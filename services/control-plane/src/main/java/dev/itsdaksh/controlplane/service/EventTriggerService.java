@@ -1,9 +1,11 @@
 package dev.itsdaksh.controlplane.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.itsdaksh.controlplane.dto.EventRequests.TriggerEventResponse;
 import dev.itsdaksh.controlplane.dto.EventRequests.TriggeredFunctionResponse;
 import dev.itsdaksh.controlplane.entity.Event;
 import dev.itsdaksh.controlplane.entity.EventAllowedDomain;
+import dev.itsdaksh.controlplane.entity.Execution;
 import dev.itsdaksh.controlplane.repository.EventAllowedDomainRepo;
 import dev.itsdaksh.controlplane.repository.EventRepo;
 import dev.itsdaksh.controlplane.repository.EventSubscriptionRepo;
@@ -17,12 +19,16 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class EventTriggerService {
-
+    private final ObjectMapper objectMapper;
     private final EventRepo eventRepo;
 
     private final EventSubscriptionRepo eventSubscriptionRepo;
 
     private final EventAllowedDomainRepo eventAllowedDomainRepo;
+
+    private final ExecutionService executionService;
+
+    private final ExecutionProducerService executionProducerService;
 
     public Optional<TriggerEventResponse> triggerEvent(
             String token,
@@ -38,14 +44,36 @@ public class EventTriggerService {
                             eventSubscriptionRepo
                                     .findByEventId(event.getId())
                                     .stream()
-                                    .map(subscription ->
-                                            new TriggeredFunctionResponse(
-                                                    subscription.getFunction().getId(),
-                                                    subscription.getFunction().getName()
-                                            )
-                                    )
-                                    .toList();
+                                    .map(subscription -> {
 
+                                        String payloadJson;
+
+                                        try {
+                                            payloadJson =
+                                                    objectMapper.writeValueAsString(
+                                                            payload
+                                                    );
+                                        } catch (Exception e) {
+                                            throw new RuntimeException(e);
+                                        }
+
+                                        Execution execution =
+                                                executionService.createExecution(
+                                                        event,
+                                                        subscription.getFunction(),
+                                                        payloadJson
+                                                );
+
+                                        executionProducerService.publishExecution(
+                                                execution.getId()
+                                        );
+
+                                        return new TriggeredFunctionResponse(
+                                                execution.getId(),
+                                                subscription.getFunction().getName()
+                                        );
+                                    })
+                                    .toList();
                     return new TriggerEventResponse(
                             event.getId(),
                             event.getName(),
