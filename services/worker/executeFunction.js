@@ -15,24 +15,26 @@ import { loadExecution } from "./loaders/executionLoader.js";
 import { loadEnv } from "./loaders/envLoader.js";
 import { loadSecrets } from "./loaders/secretLoader.js";
 
-export async function executeFunction(executionId, attempt = 0) {
+export async function executeFunction(executionId, attempt = 0, skipRunningUpdate = false) {
   const execution = await loadExecution(executionId);
 
   if (!execution) {
     return;
   }
 
-  await pool.query(
-    `
-    UPDATE executions
-    SET
-      status='RUNNING',
-      started_at=NOW(),
-      worker_id=$2
-    WHERE id=$1
-    `,
-    [executionId, process.env.HOSTNAME || "worker"],
-  );
+  if (!skipRunningUpdate) {
+    await pool.query(
+      `
+      UPDATE executions
+      SET
+        status='RUNNING',
+        started_at=NOW(),
+        worker_id=$2
+      WHERE id=$1
+      `,
+      [executionId, process.env.HOSTNAME || "worker"],
+    );
+  }
 
   try {
     const env = await loadEnv(execution.function_id, execution.project_id);

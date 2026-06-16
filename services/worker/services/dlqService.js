@@ -1,5 +1,4 @@
 import pool from "../db.js";
-import { producer } from "../kafka.js";
 
 export async function sendToDlq(executionId, error) {
   await pool.query(
@@ -14,6 +13,11 @@ export async function sendToDlq(executionId, error) {
     [executionId, error],
   );
 
+  if (process.env.QUEUE_MODE === "POSTGRES") {
+    return;
+  }
+
+  const { producer } = await import("../kafka.js");
   await producer.send({
     topic: "function-executions-dlq",
     messages: [
