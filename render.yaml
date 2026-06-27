@@ -1,0 +1,67 @@
+services:
+  # 1. EventFlow Control Plane (Spring Boot API)
+  - type: web
+    name: eventflow-control-plane
+    env: docker
+    dockerfilePath: Dockerfile
+    dockerContext: services/control-plane
+    plan: free
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: eventflow-db
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: eventflow-db
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: eventflow-db
+          property: password
+      - key: QUEUE_MODE
+        value: POSTGRES
+      - key: MINIO_URL
+        sync: false # e.g. https://<account_id>.r2.cloudflarestorage.com
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_BUCKET
+        sync: false
+
+  # 2. EventFlow Function Worker (Node.js)
+  - type: web
+    name: eventflow-worker
+    env: docker
+    dockerfilePath: Dockerfile
+    dockerContext: services/worker
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eventflow-db
+          property: connectionString
+      - key: DATABASE_SSL
+        value: "true"
+      - key: QUEUE_MODE
+        value: POSTGRES
+      - key: CACHE_MODE
+        value: DB
+      - key: MINIO_ENDPOINT
+        sync: false # e.g. <account_id>.r2.cloudflarestorage.com
+      - key: MINIO_USE_SSL
+        value: "true"
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_BUCKET
+        sync: false
+
+databases:
+  # PostgreSQL Database (Render's Native Free Database)
+  - name: eventflow-db
+    databaseName: eventflow
+    user: eventflow
+    plan: free

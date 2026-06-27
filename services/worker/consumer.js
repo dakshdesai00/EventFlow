@@ -61,3 +61,14 @@ if (queueMode === "POSTGRES") {
   });
   console.log("Function worker running in KAFKA mode");
 }
+
+// Dummy HTTP server to satisfy Render.com free-tier Web Service health checks
+import http from "http";
+const PORT = process.env.PORT || 10000;
+http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("EventFlow Worker is active\n");
+}).listen(PORT, () => {
+  console.log(`Worker dummy health check server listening on port ${PORT}`);
+});
+
