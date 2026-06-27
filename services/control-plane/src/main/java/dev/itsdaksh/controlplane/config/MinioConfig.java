@@ -13,13 +13,29 @@ public class MinioConfig {
 
     @Bean
     public MinioClient minioClient() {
-
-        return MinioClient.builder()
+        MinioClient client = MinioClient.builder()
                 .endpoint(properties.getUrl())
                 .credentials(
                         properties.getAccessKey(),
                         properties.getSecretKey()
                 )
                 .build();
+        try {
+            boolean found = client.bucketExists(
+                    io.minio.BucketExistsArgs.builder()
+                            .bucket(properties.getBucket())
+                            .build()
+            );
+            if (!found) {
+                client.makeBucket(
+                        io.minio.MakeBucketArgs.builder()
+                                .bucket(properties.getBucket())
+                                .build()
+                );
+            }
+        } catch (Exception e) {
+            System.err.println("Error initializing MinIO bucket: " + e.getMessage());
+        }
+        return client;
     }
 }
