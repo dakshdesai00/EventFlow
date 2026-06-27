@@ -9,9 +9,7 @@ services:
     plan: free
     envVars:
       - key: SPRING_DATASOURCE_URL
-        fromDatabase:
-          name: eventflow-db
-          property: connectionString
+        value: jdbc:postgresql://eventflow-db:5432/eventflow
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: eventflow-db
