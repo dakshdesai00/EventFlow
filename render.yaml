@@ -3,7 +3,7 @@ services:
   - type: web
     name: eventflow-control-plane
     env: docker
-    dockerfilePath: Dockerfile
+    dockerfilePath: services/control-plane/Dockerfile
     dockerContext: services/control-plane
     plan: free
     envVars:
@@ -34,7 +34,7 @@ services:
   - type: web
     name: eventflow-worker
     env: docker
-    dockerfilePath: Dockerfile
+    dockerfilePath: services/worker/Dockerfile
     dockerContext: services/worker
     plan: free
     envVars:
@@ -65,7 +65,7 @@ services:
   - type: web
     name: eventflow-minio
     env: docker
-    dockerfilePath: Dockerfile
+    dockerfilePath: services/minio/Dockerfile
     dockerContext: services/minio
     plan: free
     port: 9001 # Expose MinIO Web Console publicly
