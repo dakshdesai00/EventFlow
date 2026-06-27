@@ -1,8 +1,9 @@
+version: "1"
 services:
   # 1. EventFlow Control Plane (Spring Boot API)
   - type: web
     name: eventflow-control-plane
-    env: docker
+    runtime: docker
     dockerfilePath: services/control-plane/Dockerfile
     dockerContext: services/control-plane
     plan: free
@@ -33,7 +34,7 @@ services:
   # 2. EventFlow Function Worker (Node.js)
   - type: web
     name: eventflow-worker
-    env: docker
+    runtime: docker
     dockerfilePath: services/worker/Dockerfile
     dockerContext: services/worker
     plan: free
@@ -64,12 +65,13 @@ services:
   # 3. EventFlow Object Storage (MinIO)
   - type: web
     name: eventflow-minio
-    env: docker
+    runtime: docker
     dockerfilePath: services/minio/Dockerfile
     dockerContext: services/minio
     plan: free
-    port: 9001 # Expose MinIO Web Console publicly
     envVars:
+      - key: PORT
+        value: "9001" # Tells Render to route public traffic to the Console port
       - key: MINIO_ROOT_USER
         value: eventflow
       - key: MINIO_ROOT_PASSWORD
